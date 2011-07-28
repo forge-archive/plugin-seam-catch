@@ -16,12 +16,15 @@
  */
 package org.jboss.seam.exception.forge.test;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import org.jboss.arquillian.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.forge.project.Project;
+import org.jboss.forge.resources.java.JavaResource;
 import org.jboss.forge.test.SingletonAbstractShellTest;
+import org.jboss.seam.exception.control.HandlesExceptions;
 import org.jboss.seam.exception.forge.CatchFacet;
 import org.jboss.seam.exception.forge.CatchPlugin;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
@@ -29,7 +32,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertThat;
 
 /**
@@ -60,7 +64,7 @@ public class CatchPluginTest extends SingletonAbstractShellTest {
     }
 
     @Test
-    public void assertHandlerContainerCreatesSuccessfully() {
+    public void assertHandlerContainerCreatesSuccessfully() throws FileNotFoundException {
         // Boiler plate to setup the project
         final Project project = this.getProject();
 
@@ -71,10 +75,33 @@ public class CatchPluginTest extends SingletonAbstractShellTest {
 
         assertThat(this.getShell().getCurrentResource().exists(), is(true));
         assertThat(this.getShell().getCurrentResource().getName(), is("TestContainer.java"));
+        assertThat(((JavaResource)this.getShell().getCurrentResource()).getJavaSource().getImport(HandlesExceptions.class), notNullValue());
 
         // Test package structure is what we sent it
         assertThat(this.getShell().getCurrentResource().getParent().getName(), is("exceptionHandler"));
         assertThat(this.getShell().getCurrentResource().getParent().getParent().getName(), is("example"));
         assertThat(this.getShell().getCurrentResource().getParent().getParent().getParent().getName(), is("com"));
     }
+
+    // TODO: Figure out how to get this to work
+    /*@Test
+    public void assertHandlerContainerCreatesSuccessfullyWithoutPackageParameter() throws FileNotFoundException {
+        // Boiler plate to setup the project
+        final Project project = this.getProject();
+
+        this.queueInputLines(""); // Not sure why we do this...
+        this.getShell().execute("seam-catch setup");
+
+        this.getShell().execute("seam-catch create-handler-container --named TestContainer");
+        this.getShell().println("com.example.exceptionHandler");
+
+        assertThat(this.getShell().getCurrentResource().exists(), is(true));
+        assertThat(this.getShell().getCurrentResource().getName(), is("TestContainer.java"));
+        assertThat(((JavaResource)this.getShell().getCurrentResource()).getJavaSource().getImport(HandlesExceptions.class), notNullValue());
+
+        // Test package structure is what we sent it
+        assertThat(this.getShell().getCurrentResource().getParent().getName(), is("exceptionHandler"));
+        assertThat(this.getShell().getCurrentResource().getParent().getParent().getName(), is("example"));
+        assertThat(this.getShell().getCurrentResource().getParent().getParent().getParent().getName(), is("com"));
+    }*/
 }
