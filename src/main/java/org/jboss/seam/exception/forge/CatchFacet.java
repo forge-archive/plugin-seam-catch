@@ -25,7 +25,6 @@ import javax.inject.Inject;
 import org.jboss.forge.project.Facet;
 import org.jboss.forge.project.dependencies.Dependency;
 import org.jboss.forge.project.dependencies.DependencyBuilder;
-import org.jboss.forge.project.dependencies.DependencyResolver;
 import org.jboss.forge.project.facets.BaseFacet;
 import org.jboss.forge.project.facets.DependencyFacet;
 import org.jboss.forge.project.facets.events.InstallFacets;
@@ -37,60 +36,68 @@ import org.jboss.forge.spec.javaee.CDIFacet;
 
 /**
  * Seam Catch Facet, used to list dependencies and allow for easier installation.
- *
+ * 
  * @author <a href="http://community.jboss.org/people/LightGuard">Jason Porter</a>
  */
 @Alias("org.jboss.seam.exception")
 @RequiresFacet(CDIFacet.class)
-public class CatchFacet extends BaseFacet {
-    private static final Dependency SEAM_CATCH_DEPENDENCY = DependencyBuilder.create("org.jboss.seam.catch:seam-catch");
+public class CatchFacet extends BaseFacet
+{
+   private static final Dependency SEAM_CATCH_DEPENDENCY = DependencyBuilder.create("org.jboss.solder:solder");
 
-    @Inject
-    private ShellPrompt prompt;
+   @Inject
+   private ShellPrompt prompt;
 
-    @Inject
-    private ShellPrintWriter writer;
+   @Inject
+   private ShellPrintWriter writer;
 
-    @Inject
-    private DependencyResolver resolver;
+   @Inject
+   Event<InstallFacets> installFacetsEvent;
 
-    @Inject
-    Event<InstallFacets> installFacetsEvent;
+   @Override
+   public boolean install()
+   {
+      final DependencyFacet deps = this.getProject().getFacet(DependencyFacet.class);
 
-    @Override
-    public boolean install() {
-        final DependencyFacet deps = this.getProject().getFacet(DependencyFacet.class);
+      writer.println();
 
-        writer.println();
+      if (!deps.hasRepository(DependencyFacet.KnownRepository.JBOSS_NEXUS)) {
+         deps.addRepository(DependencyFacet.KnownRepository.JBOSS_NEXUS);
+      }
 
-        if (!deps.hasRepository(DependencyFacet.KnownRepository.JBOSS_NEXUS)) {
-            deps.addRepository(DependencyFacet.KnownRepository.JBOSS_NEXUS);
-        }
+      final List<Dependency> versions = deps.resolveAvailableVersions(
+               SEAM_CATCH_DEPENDENCY);
 
-        final List<Dependency> versions = resolver.resolveVersions(SEAM_CATCH_DEPENDENCY);
+      final Dependency dependency;
+      if (versions.isEmpty())
+      {
+         dependency = DependencyBuilder.create(SEAM_CATCH_DEPENDENCY).setVersion("3.1.0-SNAPSHOT");
+      }
+      else
+         dependency = prompt.promptChoiceTyped("Install Seam Catch version", versions,
+                  versions.isEmpty() ? null : versions.get(versions.size() - 1));
 
-        final Dependency dependency = prompt.promptChoiceTyped("Install Seam Catch version", versions,
-                versions.isEmpty() ? null : versions.get(versions.size() - 1));
+      final Dependency existingDependency = deps.getDependency(dependency);
 
-        final Dependency existingDependency = deps.getDependency(dependency);
+      if ((existingDependency != null)
+               && prompt.promptBoolean("Existing Seam Catch dependency found. Replace [" + existingDependency
+                        + "] with [" + dependency + "]?"))
+         deps.removeDependency(existingDependency);
 
-        if ((existingDependency != null)
-                && prompt.promptBoolean("Existing Seam Catch dependency found. Replace [" + existingDependency + "] with [" + dependency + "]?"))
-            deps.removeDependency(existingDependency);
+      deps.addDependency(dependency);
 
-        deps.addDependency(dependency);
+      this.getProject().registerFacet(this);
 
-        this.getProject().registerFacet(this);
+      return true;
+   }
 
-        return true;
-    }
+   @Override
+   public boolean isInstalled()
+   {
+      final DependencyFacet allDependencies = this.getProject().getFacet(DependencyFacet.class);
 
-    @Override
-    public boolean isInstalled() {
-        final DependencyFacet allDependencies = this.getProject().getFacet(DependencyFacet.class);
+      return this.getProject().hasAllFacets(Arrays.<Class<? extends Facet>> asList(CDIFacet.class, CatchFacet.class))
+               && allDependencies.hasDependency(SEAM_CATCH_DEPENDENCY);
 
-        return this.getProject().hasAllFacets(Arrays.<Class<? extends Facet>>asList(CDIFacet.class, CatchFacet.class))
-                && allDependencies.hasDependency(SEAM_CATCH_DEPENDENCY);
-
-    }
+   }
 }

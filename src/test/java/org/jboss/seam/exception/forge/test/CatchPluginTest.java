@@ -16,92 +16,82 @@
  */
 package org.jboss.seam.exception.forge.test;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-
 import org.jboss.arquillian.api.Deployment;
-import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.forge.project.Project;
 import org.jboss.forge.resources.java.JavaResource;
+import org.jboss.forge.test.AbstractShellTest;
 import org.jboss.forge.test.SingletonAbstractShellTest;
-import org.jboss.seam.exception.control.HandlesExceptions;
 import org.jboss.seam.exception.forge.CatchFacet;
 import org.jboss.seam.exception.forge.CatchPlugin;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
-import org.junit.Before;
+import org.jboss.solder.exception.control.HandlesExceptions;
+import org.junit.Assert;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.Assert.assertThat;
 
 /**
  * @author <a href="http://community.jboss.org/people/LightGuard">Jason Porter</a>
  */
-@RunWith(Arquillian.class)
-public class CatchPluginTest extends SingletonAbstractShellTest {
-    @Before
-    @Override
-    public void beforeTest() throws IOException {
-        super.beforeTest();
-        initializeJavaProject();
-    }
+public class CatchPluginTest extends AbstractShellTest
+{
+   @Deployment
+   public static JavaArchive getDeployment()
+   {
+      return SingletonAbstractShellTest.getDeployment().addPackages(true, CatchPlugin.class.getPackage());
+   }
 
-    @Deployment
-    public static JavaArchive getDeployment() {
-        return SingletonAbstractShellTest.getDeployment().addPackages(true, CatchPlugin.class.getPackage());
-    }
+   @Test
+   public void assertSetupAppliesCorrectly() throws Exception
+   {
+      initializeJavaProject();
+      final Project project = this.getProject();
 
-    @Test
-    public void assertSetupAppliesCorrectly() {
-        final Project project = this.getProject();
+      this.queueInputLines(""); // Not sure why we do this...
+      this.getShell().execute("seam-catch setup");
 
-        this.queueInputLines(""); // Not sure why we do this...
-        this.getShell().execute("seam-catch setup");
+      Assert.assertTrue(project.hasFacet(CatchFacet.class));
+   }
 
-        assertThat(project.getFacet(CatchFacet.class).isInstalled(), is(true));
-    }
+   @Test
+   public void assertHandlerContainerCreatesSuccessfully() throws Exception
+   {
+      initializeJavaProject();
+      this.getProject();
 
-    @Test
-    public void assertHandlerContainerCreatesSuccessfully() throws FileNotFoundException {
-        // Boiler plate to setup the project
-        final Project project = this.getProject();
+      this.queueInputLines(""); // Not sure why we do this...
+      this.getShell().execute("seam-catch setup");
 
-        this.queueInputLines(""); // Not sure why we do this...
-        this.getShell().execute("seam-catch setup");
+      this.getShell().execute(
+               "seam-catch create-handler-container --named TestContainer --package com.example.exceptionHandler");
 
-        this.getShell().execute("seam-catch create-handler-container --named TestContainer --package com.example.exceptionHandler");
+      Assert.assertTrue(this.getShell().getCurrentResource().exists());
+      Assert.assertEquals("TestContainer.java", this.getShell().getCurrentResource().getName());
+      Assert.assertNotNull(((JavaResource) this.getShell().getCurrentResource()).getJavaSource().getImport(
+               HandlesExceptions.class));
 
-        assertThat(this.getShell().getCurrentResource().exists(), is(true));
-        assertThat(this.getShell().getCurrentResource().getName(), is("TestContainer.java"));
-        assertThat(((JavaResource)this.getShell().getCurrentResource()).getJavaSource().getImport(HandlesExceptions.class), notNullValue());
+      // Test package structure is what we sent it
+      Assert.assertEquals("exceptionHandler", this.getShell().getCurrentResource().getParent().getName());
+      Assert.assertEquals("example", this.getShell().getCurrentResource().getParent().getParent().getName());
+      Assert.assertEquals("com", this.getShell().getCurrentResource().getParent().getParent().getParent().getName());
+   }
+   // TODO: Figure out how to get this to work
+   /*@Test
+   public void assertHandlerContainerCreatesSuccessfullyWithoutPackageParameter() throws FileNotFoundException {
+       // Boiler plate to setup the project
+       final Project project = this.getProject();
 
-        // Test package structure is what we sent it
-        assertThat(this.getShell().getCurrentResource().getParent().getName(), is("exceptionHandler"));
-        assertThat(this.getShell().getCurrentResource().getParent().getParent().getName(), is("example"));
-        assertThat(this.getShell().getCurrentResource().getParent().getParent().getParent().getName(), is("com"));
-    }
+       this.queueInputLines(""); // Not sure why we do this...
+       this.getShell().execute("seam-catch setup");
 
-    // TODO: Figure out how to get this to work
-    /*@Test
-    public void assertHandlerContainerCreatesSuccessfullyWithoutPackageParameter() throws FileNotFoundException {
-        // Boiler plate to setup the project
-        final Project project = this.getProject();
+       this.getShell().execute("seam-catch create-handler-container --named TestContainer");
+       this.getShell().println("com.example.exceptionHandler");
 
-        this.queueInputLines(""); // Not sure why we do this...
-        this.getShell().execute("seam-catch setup");
+       assertThat(this.getShell().getCurrentResource().exists(), is(true));
+       assertThat(this.getShell().getCurrentResource().getName(), is("TestContainer.java"));
+       assertThat(((JavaResource)this.getShell().getCurrentResource()).getJavaSource().getImport(HandlesExceptions.class), notNullValue());
 
-        this.getShell().execute("seam-catch create-handler-container --named TestContainer");
-        this.getShell().println("com.example.exceptionHandler");
-
-        assertThat(this.getShell().getCurrentResource().exists(), is(true));
-        assertThat(this.getShell().getCurrentResource().getName(), is("TestContainer.java"));
-        assertThat(((JavaResource)this.getShell().getCurrentResource()).getJavaSource().getImport(HandlesExceptions.class), notNullValue());
-
-        // Test package structure is what we sent it
-        assertThat(this.getShell().getCurrentResource().getParent().getName(), is("exceptionHandler"));
-        assertThat(this.getShell().getCurrentResource().getParent().getParent().getName(), is("example"));
-        assertThat(this.getShell().getCurrentResource().getParent().getParent().getParent().getName(), is("com"));
-    }*/
+       // Test package structure is what we sent it
+       assertThat(this.getShell().getCurrentResource().getParent().getName(), is("exceptionHandler"));
+       assertThat(this.getShell().getCurrentResource().getParent().getParent().getName(), is("example"));
+       assertThat(this.getShell().getCurrentResource().getParent().getParent().getParent().getName(), is("com"));
+   }*/
 }
